@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View-change Results of PhotoFramer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .controls {
+            background: transparent;
+            padding: 0;
+            border-radius: 0;
+            box-shadow: none;
+            margin-bottom: 0;
+            display: none; /* hidden until a status is shown */
+        }
+
+        .controls h3 {
+            margin-bottom: 15px;
+            color: #4a5568;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .status.loading {
+            background: #fef7cd;
+            color: #b45309;
+            display: block;
+        }
+
+        .status.error {
+            background: #fecaca;
+            color: #dc2626;
+            display: block;
+        }
+
+        .status.success {
+            background: #d1fae5;
+            color: #059669;
+            display: block;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .sample-card {
+            background: white;
+            border-radius: 15px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            min-height: auto;
+        }
+
+        .sample-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        }
+
+        .sample-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f1f5f9;
+            gap: 15px;
+        }
+
+        .sample-id {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.1em;
+            word-break: break-all;
+            line-height: 1.4;
+            flex: 1;
+            min-width: 0;
+            position: relative;
+            cursor: help;
+        }
+
+        .sample-id:hover::after {
+            content: attr(title);
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            white-space: pre-wrap;
+            z-index: 10000;
+            max-width: 80vw;
+            word-break: break-all;
+            line-height: 1.4;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sample-id-truncated {
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .image-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .image-wrapper {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+        }
+
+        .image-wrapper img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+            transition: transform 0.3s;
+            cursor: default;
+            max-height: 300px;
+        }
+
+        .image-wrapper:hover img {
+            transform: none;
+        }
+
+        .image-label {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .reason-container {
+            background: #ffffff;
+            color: #000000;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            margin-top: 20px;
+        }
+
+        .reason-title {
+            font-weight: 600;
+            color: #000000;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .reason-text {
+            color: #2d3748;
+            line-height: 1.6;
+            font-size: 16px;
+            white-space: pre-wrap;
+        }
+
+        .reason-embed {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .reason-iframe {
+            width: 100%;
+            height: 160px;
+            border: 0;
+            background: #fff;
+        }
+
+        .reason-input {
+            width: 100%;
+            min-height: 160px;
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            resize: vertical;
+            font-size: 16px;
+            font-family: inherit;
+            margin-top: 10px;
+            line-height: 1.6;
+            background: #ffffff;
+            color: #000000;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+        }
+
+        .modal-content {
+            position: relative;
+            margin: auto;
+            padding: 0;
+            width: 90%;
+            max-width: 1200px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .modal img {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #667eea;
+        }
+
+        @media (max-width: 1200px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+                gap: 25px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .image-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .sample-card {
+                min-height: auto;
+                padding: 20px;
+            }
+
+            .image-wrapper img {
+                max-height: 250px;
+            }
+
+            .reason-input {
+                min-height: 160px;
+                font-size: 15px;
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🥯 View-change Results of PhotoFramer </h1>
+        </div>
+
+        <div class="controls">
+            <div id="status" class="status"></div>
+        </div>
+
+        <div id="resultsContainer"></div>
+    </div>
+
+    <!-- Modal for full-size images -->
+    <div id="imageModal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <div class="modal-content">
+            <img id="modalImage" src="" alt="">
+        </div>
+    </div>
+
+    <script>
+        let currentResults = [];
+        const DEFAULT_FOLDER = 'viewchange_samples';
+        // Static manifest used when opened via file:// so no user action is needed
+        const STATIC_SAMPLES = [
+            "000293_PyEFH3UWXOA_3x2_hltw_000293_PyEFH3UWXOA_edit",
+            "002822_BYDq4QBu5sE_3x2_hgtw_002822_BYDq4QBu5sE_edit",
+            "002851_ZzleXZL8STI_3x2_hltw_002851_ZzleXZL8STI_edit",
+            "003144_W3EWDe2VjCE_16x9_hltw_003144_W3EWDe2VjCE_edit",
+            "003496_po8i9kSQg5E_3x2_hgtw_003496_po8i9kSQg5E_edit",
+            "003815_uajXeRxT0Gs_3x2_hgtw_003815_uajXeRxT0Gs_edit",
+            "004191_6-BNtLJrNgU_3x2_hltw_004191_6-BNtLJrNgU_edit",
+            "004287_zprI6McqDx4_3x2_hltw_004287_zprI6McqDx4_edit",
+            "005189_fEC55UElliI_3x2_hltw_005189_fEC55UElliI_edit",
+            "005275_UU2R0bKa8Bo_16x9_hltw_005275_UU2R0bKa8Bo_edit",
+            "005338_xqU0Mia9A3c_4x3_hgtw_005338_xqU0Mia9A3c_edit",
+            "006122_L6epI8_qiT8_3x2_hgtw_006122_L6epI8_qiT8_edit",
+            "006173_WdcPxQEee3I_4x3_hgtw_006173_WdcPxQEee3I_edit",
+            "006597_yjQB-aWPvq8_3x2_hltw_006597_yjQB-aWPvq8_edit",
+            "007351_PneNxUN465Y_3x2_hltw_007351_PneNxUN465Y_edit",
+            "008073_5XZ3UrPqQYc_3x2_hgtw_008073_5XZ3UrPqQYc_edit",
+            "008881_sJaenHSSFC0_3x2_hltw_008881_sJaenHSSFC0_edit",
+            "009358_dSi6VjMrLG8_3x2_hgtw_009358_dSi6VjMrLG8_edit",
+            "009521_0t2ktFIhC1s_3x2_hgtw_009521_0t2ktFIhC1s_edit",
+            "011266_9TwAiR3AKXc_4x3_hltw_011266_9TwAiR3AKXc_edit",
+            "011836_XW5BbnQ1I5w_3x2_hltw_011836_XW5BbnQ1I5w_edit",
+            "013423_R5oUp3zKEk4_3x2_hgtw_013423_R5oUp3zKEk4_edit",
+            "013545_jrZyQgKfq68_3x2_hgtw_013545_jrZyQgKfq68_edit",
+            "014517_wX-NB8xFD3w_4x3_hltw_014517_wX-NB8xFD3w_edit",
+            "014924_PpWIWHMRA5A_3x2_hgtw_014924_PpWIWHMRA5A_edit",
+            "015473_EgWxUsZByFw_3x2_hltw_015473_EgWxUsZByFw_edit",
+            "015766_pR5OXJn6Kug_16x9_hltw_015766_pR5OXJn6Kug_edit",
+            "017500_3tdvWoNxvbw_3x2_hltw_017500_3tdvWoNxvbw_edit",
+            "017669_RWzPBcWVdpw_3x2_hltw_017669_RWzPBcWVdpw_edit",
+            "017760_U__NRbUwdV8_4x3_hltw_017760_U__NRbUwdV8_edit",
+            "018329_yNOofa6J_ic_3x2_hgtw_018329_yNOofa6J_ic_edit",
+            "018418_NJNExJ4Kkyg_16x9_hltw_018418_NJNExJ4Kkyg_edit",
+            "018472_mhqvEtyKafs_3x2_hltw_018472_mhqvEtyKafs_edit",
+            "019611_7mnuaPl6Jug_3x2_hgtw_019611_7mnuaPl6Jug_edit",
+            "020525_BBJH-XjRNYI_3x2_hgtw_020525_BBJH-XjRNYI_edit",
+            "021462_KT7WwMrVMtI_3x2_hgtw_021462_KT7WwMrVMtI_edit",
+            "022245_MlE0ywXtibg_3x2_hltw_022245_MlE0ywXtibg_edit",
+            "023745_6HmilN41EDc_16x9_hltw_023745_6HmilN41EDc_edit",
+            "023949_9GkYmKYVoGY_3x2_hltw_023949_9GkYmKYVoGY_edit",
+            "CML_20221202_164801_730_merged_edit",
+            "CML_20221225_144744_784_merged_edit",
+            "CML_20221229_145312_765_merged_edit",
+            "CML_20230128_101944_991_merged_edit",
+            "CML_20230129_150937_259_merged_edit",
+            "CML_20230212_085016_387_merged_edit",
+            "CML_20230214_161634_174_merged_edit",
+            "CML_20230218_125528_964_merged_edit",
+            "CML_20230224_170032_150_merged_edit",
+            "NXT_20220101_113115_821_merged_edit",
+            "NXT_20220213_145246_684_merged_edit",
+            "NXT_20220215_134216_309_merged_edit",
+            "NXT_20220522_160404_361_merged_edit",
+            "NXT_20220622_141135_488_merged_edit",
+            "NXT_20220708_104651_733_merged_edit",
+            "NXT_20220815_170921_796_merged_edit",
+            "NXT_20221004_171437_350_merged_edit",
+            "NXT_20221008_164714_278_merged_edit",
+            "NXT_20221119_160042_238_merged_edit",
+            "NXT_20221119_160449_482_merged_edit",
+            "NXT_20221217_161431_689_merged_edit",
+        ];
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            const controls = document.querySelector('.controls');
+            if (controls) controls.style.display = 'block';
+        }
+
+        function hideStatus() {
+            const status = document.getElementById('status');
+            status.style.display = 'none';
+            const controls = document.querySelector('.controls');
+            if (controls) controls.style.display = 'none';
+        }
+
+        // -------- Auto scan server directory (shift_samples) ----------
+        async function listFilesInDirectory(dirPath) {
+            const url = dirPath.endsWith('/') ? dirPath : dirPath + '/';
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) {
+                throw new Error(`Failed to fetch directory: ${dirPath} (${res.status})`);
+            }
+            const text = await res.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            const anchors = Array.from(doc.querySelectorAll('a'));
+            const files = anchors
+                .map(a => a.getAttribute('href'))
+                .filter(href => !!href && !href.endsWith('../') && !href.endsWith('/'))
+                .map(name => ({
+                    name: decodeURIComponent(name),
+                    url: url + name
+                }));
+            return files;
+        }
+
+        async function autoDiscoverFromDirectory(dirPath) {
+            const files = await listFilesInDirectory(dirPath);
+            const sampleIds = new Set();
+            const origPattern = /(.+)_orig\.jpg$/;
+            files.forEach(f => {
+                const m = f.name.match(origPattern);
+                if (m) sampleIds.add(m[1]);
+            });
+            const sortedIds = Array.from(sampleIds).sort();
+            return { files, sampleIds: sortedIds };
+        }
+
+        async function buildResultsFromDirectory(sampleIds, dirPath, files) {
+            const nameToUrl = new Map(files.map(f => [f.name, f.url]));
+            const results = [];
+            for (const sampleId of sampleIds) {
+                let baseId = sampleId;
+                let origUrl = nameToUrl.get(`${baseId}_orig.jpg`);
+                let editUrl = nameToUrl.get(`${baseId}_edit.jpg`);
+                let reasonUrl = nameToUrl.get(`${baseId}_reason.txt`);
+
+                if ((!origUrl || !editUrl) && sampleId.includes('_rot')) {
+                    const noRot = sampleId.replace(/_rot[\d.]+$/, '');
+                    origUrl = nameToUrl.get(`${noRot}_orig.jpg`) || origUrl;
+                    editUrl = nameToUrl.get(`${noRot}_edit.jpg`) || editUrl;
+                    reasonUrl = nameToUrl.get(`${noRot}_reason.txt`) || reasonUrl;
+                    baseId = noRot;
+                }
+
+                if ((!origUrl || !editUrl) && !sampleId.includes('_rot')) {
+                    const prefix = `${sampleId}_rot`;
+                    const rotOrig = files.find(f => f.name.startsWith(prefix) && f.name.endsWith('_orig.jpg'));
+                    if (rotOrig) {
+                        const rotId = rotOrig.name.replace('_orig.jpg', '');
+                        origUrl = nameToUrl.get(`${rotId}_orig.jpg`);
+                        editUrl = nameToUrl.get(`${rotId}_edit.jpg`);
+                        reasonUrl = nameToUrl.get(`${rotId}_reason.txt`);
+                        baseId = rotId;
+                    }
+                }
+
+                if (origUrl || editUrl) {
+                    results.push({
+                        id: baseId,
+                        origPath: origUrl || null,
+                        editPath: editUrl || null,
+                        reasonUrl: reasonUrl || null,
+                        reason: ''
+                    });
+                }
+            }
+            return results;
+        }
+
+        async function autoLoadShiftSamples() {
+            try {
+                // If opened as a local file, use static manifest so no clicks are needed
+                if (location.protocol === 'file:') {
+                    const sampleIds = STATIC_SAMPLES.slice();
+                    const results = sampleIds.map(id => {
+                        const makeUrl = (suffix) => `${DEFAULT_FOLDER}/${encodeURIComponent(id + suffix)}`;
+                        return {
+                            id,
+                            origPath: makeUrl('_orig.jpg'),
+                            editPath: makeUrl('_edit.jpg'),
+                            reasonUrl: makeUrl('_reason.txt'),
+                            reason: ''
+                        };
+                    });
+                    currentResults = results;
+                    displayResults(results);
+                    return;
+                }
+
+                const { files, sampleIds } = await autoDiscoverFromDirectory(DEFAULT_FOLDER);
+                if (sampleIds.length === 0) {
+                    showStatus(`No valid samples found in "${DEFAULT_FOLDER}"`, 'error');
+                    return;
+                }
+                const results = await buildResultsFromDirectory(sampleIds, DEFAULT_FOLDER, files);
+                currentResults = results;
+                displayResults(results);
+            } catch (e) {
+                // On http(s) failure, inform gracefully
+                showStatus(`Auto-load failed: ${e.message}`, 'error');
+            }
+        }
+
+        function displayResults(results) {
+            const resultsHtml = results.map(sample => {
+                // Truncate very long IDs for display, but keep full ID in tooltip
+                const displayId = sample.id.length > 15 ? 
+                    `${sample.id.substring(0, 12)}...` : 
+                    sample.id;
+                
+                const isFile = location.protocol === 'file:';
+                const reasonBlock = (isFile && sample.reasonUrl)
+                    ? `
+                        <div class="reason-container">
+                            <div class="reason-title">Text Guidance</div>
+                            <div class="reason-embed">
+                                <iframe class="reason-iframe" src="${sample.reasonUrl}" loading="lazy"></iframe>
+                            </div>
+                        </div>
+                      `
+                    : `
+                        <div class="reason-container">
+                            <div class="reason-title">Text Guidance</div>
+                            <textarea class="reason-input" 
+                                      id="reason-${sample.id}" 
+                                      placeholder="Load reason from file or enter manually..."
+                                      onchange="updateSampleReason('${sample.id}', this.value)"></textarea>
+                        </div>
+                      `;
+
+                return `
+                <div class="sample-card">
+                    <div class="sample-header">
+                        <div class="sample-id" title="Full ID: ${sample.id}">Sample ${displayId}</div>
+                    </div>
+                    <div class="image-container">
+                        <div class="image-wrapper">
+                            <img src="${sample.origPath || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZmY3ODc4Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vdCBGb3VuZDwvdGV4dD48L3N2Zz4='}" alt="Original ${sample.id}">
+                            <div class="image-label">Input</div>
+                        </div>
+                        <div class="image-wrapper">
+                            <img src="${sample.editPath || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZmY3ODc4Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vdCBGb3VuZDwvdGV4dD48L3N2Zz4='}" alt="Edited ${sample.id}">
+                            <div class="image-label">Result</div>
+                        </div>
+                    </div>
+                    ${reasonBlock}
+                </div>
+                `;
+            }).join('');
+
+            document.getElementById('resultsContainer').innerHTML = `
+                <div class="results-grid">
+                    ${resultsHtml}
+                </div>
+            `;
+
+            // Load reason texts from URLs (skip fetch in file:// mode)
+            results.forEach(sample => {
+                if (sample.reasonUrl && location.protocol !== 'file:') {
+                    loadReasonFromUrl(sample.id, sample.reasonUrl);
+                }
+            });
+        }
+
+        async function loadReasonFromUrl(sampleId, url) {
+            try {
+                const res = await fetch(url, { cache: 'no-store' });
+                if (!res.ok) return;
+                const content = await res.text();
+                const textarea = document.getElementById(`reason-${sampleId}`);
+                if (textarea) {
+                    textarea.value = content;
+                    updateSampleReason(sampleId, content);
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        function updateSampleReason(sampleId, reason) {
+            const sample = currentResults.find(s => s.id === sampleId);
+            if (sample) {
+                sample.reason = reason;
+            }
+        }
+
+        function openModal(imagePath) {
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            modal.style.display = 'block';
+            modalImg.src = imagePath;
+        }
+
+        function closeModal() {
+            document.getElementById('imageModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside the image
+        window.onclick = function(event) {
+            const modal = document.getElementById('imageModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // Page load initialization
+        window.onload = function() {
+            autoLoadShiftSamples();
+        };
+    </script>
+</body>
+</html> 
