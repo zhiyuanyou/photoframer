@@ -409,113 +409,21 @@
             if (controls) controls.style.display = 'none';
         }
 
-        // -------- Auto scan server directory (shift_samples) ----------
-        async function listFilesInDirectory(dirPath) {
-            const url = dirPath.endsWith('/') ? dirPath : dirPath + '/';
-            const res = await fetch(url, { cache: 'no-store' });
-            if (!res.ok) {
-                throw new Error(`Failed to fetch directory: ${dirPath} (${res.status})`);
-            }
-            const text = await res.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(text, 'text/html');
-            const anchors = Array.from(doc.querySelectorAll('a'));
-            const files = anchors
-                .map(a => a.getAttribute('href'))
-                .filter(href => !!href && !href.endsWith('../') && !href.endsWith('/'))
-                .map(name => ({
-                    name: decodeURIComponent(name),
-                    url: url + name
-                }));
-            return files;
-        }
-
-        async function autoDiscoverFromDirectory(dirPath) {
-            const files = await listFilesInDirectory(dirPath);
-            const sampleIds = new Set();
-            const origPattern = /(.+)_orig\.jpg$/;
-            files.forEach(f => {
-                const m = f.name.match(origPattern);
-                if (m) sampleIds.add(m[1]);
+        function autoLoadShiftSamples() {
+            // 直接用静态列表，无论是 file:// 还是 https://
+            const sampleIds = STATIC_SAMPLES.slice();
+            const results = sampleIds.map(id => {
+                const base = `${DEFAULT_FOLDER}/${encodeURIComponent(id)}`;
+                return {
+                    id,
+                    origPath: `${base}_orig.jpg`,
+                    editPath: `${base}_edit.jpg`,
+                    reasonUrl: `${base}_reason.txt`,
+                    reason: ''
+                };
             });
-            const sortedIds = Array.from(sampleIds).sort();
-            return { files, sampleIds: sortedIds };
-        }
-
-        async function buildResultsFromDirectory(sampleIds, dirPath, files) {
-            const nameToUrl = new Map(files.map(f => [f.name, f.url]));
-            const results = [];
-            for (const sampleId of sampleIds) {
-                let baseId = sampleId;
-                let origUrl = nameToUrl.get(`${baseId}_orig.jpg`);
-                let editUrl = nameToUrl.get(`${baseId}_edit.jpg`);
-                let reasonUrl = nameToUrl.get(`${baseId}_reason.txt`);
-
-                if ((!origUrl || !editUrl) && sampleId.includes('_rot')) {
-                    const noRot = sampleId.replace(/_rot[\d.]+$/, '');
-                    origUrl = nameToUrl.get(`${noRot}_orig.jpg`) || origUrl;
-                    editUrl = nameToUrl.get(`${noRot}_edit.jpg`) || editUrl;
-                    reasonUrl = nameToUrl.get(`${noRot}_reason.txt`) || reasonUrl;
-                    baseId = noRot;
-                }
-
-                if ((!origUrl || !editUrl) && !sampleId.includes('_rot')) {
-                    const prefix = `${sampleId}_rot`;
-                    const rotOrig = files.find(f => f.name.startsWith(prefix) && f.name.endsWith('_orig.jpg'));
-                    if (rotOrig) {
-                        const rotId = rotOrig.name.replace('_orig.jpg', '');
-                        origUrl = nameToUrl.get(`${rotId}_orig.jpg`);
-                        editUrl = nameToUrl.get(`${rotId}_edit.jpg`);
-                        reasonUrl = nameToUrl.get(`${rotId}_reason.txt`);
-                        baseId = rotId;
-                    }
-                }
-
-                if (origUrl || editUrl) {
-                    results.push({
-                        id: baseId,
-                        origPath: origUrl || null,
-                        editPath: editUrl || null,
-                        reasonUrl: reasonUrl || null,
-                        reason: ''
-                    });
-                }
-            }
-            return results;
-        }
-
-        async function autoLoadShiftSamples() {
-            try {
-                // If opened as a local file, use static manifest so no clicks are needed
-                if (location.protocol === 'file:') {
-                    const sampleIds = STATIC_SAMPLES.slice();
-                    const results = sampleIds.map(id => {
-                        const makeUrl = (suffix) => `${DEFAULT_FOLDER}/${encodeURIComponent(id + suffix)}`;
-                        return {
-                            id,
-                            origPath: makeUrl('_orig.jpg'),
-                            editPath: makeUrl('_edit.jpg'),
-                            reasonUrl: makeUrl('_reason.txt'),
-                            reason: ''
-                        };
-                    });
-                    currentResults = results;
-                    displayResults(results);
-                    return;
-                }
-
-                const { files, sampleIds } = await autoDiscoverFromDirectory(DEFAULT_FOLDER);
-                if (sampleIds.length === 0) {
-                    showStatus(`No valid samples found in "${DEFAULT_FOLDER}"`, 'error');
-                    return;
-                }
-                const results = await buildResultsFromDirectory(sampleIds, DEFAULT_FOLDER, files);
-                currentResults = results;
-                displayResults(results);
-            } catch (e) {
-                // On http(s) failure, inform gracefully
-                showStatus(`Auto-load failed: ${e.message}`, 'error');
-            }
+            currentResults = results;
+            displayResults(results);
         }
 
         function displayResults(results) {
